@@ -45,7 +45,7 @@ fn parse_debug_level(s: &str) -> Result<DebugLevel, ParsingError> {
     }
 }
 
-fn parse_time(ts: &str) -> ClockTime {
+pub fn parse_time(ts: &str) -> ClockTime {
     let mut split = ts.splitn(3, ':');
     let h: u64 = split.next().expect("missing hour").parse().expect(
         "invalid hour",
