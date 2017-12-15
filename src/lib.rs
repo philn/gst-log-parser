@@ -226,4 +226,12 @@ mod tests {
 
         assert_eq!(parsed.count(), 14);
     }
+
+    #[test]
+    fn error() {
+        let f = File::open("test-logs/error.log").expect("Failed to open log file");
+        let mut parsed = parse(f);
+
+        let entry = parsed.next().expect("First entry missing");
+    }
 }
