@@ -23,7 +23,8 @@ struct Opt {
 fn generate() -> Result<bool, std::io::Error> {
     let opt = Opt::from_args();
     let input = File::open(opt.input)?;
-    let mut outputs: HashMap<String, File> = HashMap::new();
+    //let mut outputs: HashMap<String, File> = HashMap::new();
+    let mut out = File::create("out").unwrap();
 
     let parsed = parse(input)
         .filter(|entry| entry.category == "GST_SCHEDULING")
@@ -38,10 +39,9 @@ fn generate() -> Result<bool, std::io::Error> {
         let object_name = object.split(":").next().unwrap();
         //println!("{} {} {}", entry.ts, object_name, pts);
 
-        println!("{} -> {:?}", object_name, outputs.get(object_name));
-        let out = outputs.entry(object_name.to_string()).or_insert(File::create(&object_name).unwrap());
+        //println!("{} -> {:?}", object_name, outputs.get(object_name));
+        //let out = outputs.entry(object_name.to_string()).or_insert(File::create(&object_name).unwrap());
         write!(out, "{} {} {}\n", entry.ts, object_name, pts)?;
-        write!(out, "coucou\n")?;
     }
 
     Ok(true)
