@@ -44,10 +44,11 @@ fn generate() -> Result<bool, std::io::Error> {
     let input = File::open(opt.input)?;
     let mut output = (File::create(&opt.output))?;
 
-    let parsed = parse(input).filter(|entry| entry.category == "OMX_PERFORMANCE");
+    let parsed = parse(input).filter(|entry| entry.unwrap().category == "OMX_PERFORMANCE");
     let mut counts: HashMap<String, Count> = HashMap::new();
 
     for entry in parsed {
+        let entry = entry.unwrap();
         let object = entry.object.unwrap();
         // Extract the component name by taking the 4th last chars of the gst object name
         if let Some((i, _)) = object.char_indices().rev().nth(3) {

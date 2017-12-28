@@ -158,12 +158,12 @@ impl<R: Read> ParserIterator<R> {
 }
 
 impl<R: Read> Iterator for ParserIterator<R> {
-    type Item = Entry;
+    type Item = Result<Entry, ParsingError>;
 
-    fn next(&mut self) -> Option<Entry> {
+    fn next(&mut self) -> Option<Result<Entry, ParsingError>> {
         match self.lines.next() {
             None => None,
-            Some(line) => Some(Entry::new(line.unwrap())),
+            Some(line) => Some(Ok(Entry::new(line.unwrap()))),
         }
     }
 }
@@ -184,7 +184,7 @@ mod tests {
         let f = File::open("test-logs/nocolor.log").expect("Failed to open log file");
         let mut parsed = parse(f);
 
-        let entry = parsed.next().expect("First entry missing");
+        let entry = parsed.next().expect("First entry missing").unwrap();
         assert_eq!(entry.ts.nanoseconds().unwrap(), 7773544);
         assert_eq!(format!("{}", entry.ts), "00:00:00.007773544");
         assert_eq!(entry.pid, 8874);
@@ -199,7 +199,7 @@ mod tests {
             "Initializing GStreamer Core Library version 1.10.4"
         );
 
-        let entry = parsed.nth(3).expect("3th entry missing");
+        let entry = parsed.nth(3).expect("3th entry missing").unwrap();
         assert_eq!(entry.message, "0x55895101d040 ref 1->2");
         assert_eq!(entry.object, Some("allocatorsysmem0".to_string()));
     }
@@ -209,7 +209,7 @@ mod tests {
         let f = File::open("test-logs/color.log").expect("Failed to open log file");
         let mut parsed = parse(f);
 
-        let entry = parsed.next().expect("First entry missing");
+        let entry = parsed.next().expect("First entry missing").unwrap();
         assert_eq!(entry.ts.nanoseconds().unwrap(), 208614);
         assert_eq!(format!("{}", entry.ts), "00:00:00.000208614");
         assert_eq!(entry.pid, 17267);
@@ -232,6 +232,6 @@ mod tests {
         let f = File::open("test-logs/error.log").expect("Failed to open log file");
         let mut parsed = parse(f);
 
-        let entry = parsed.next().expect("First entry missing");
+        let entry = parsed.next().expect("First entry missing").unwrap();
     }
 }

@@ -22,6 +22,6 @@ fn main() {
 
     let parsed = parse(f);
     for entry in parsed {
-        println!("{}", entry);
+        println!("{}", entry.unwrap());
     }
 }
