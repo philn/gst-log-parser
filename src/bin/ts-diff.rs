@@ -21,7 +21,7 @@ use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(name = "ts-diff",
-            about = "Display the timestamp difference between the previous entry from the thread")]
+            about = "Display the timestamp difference between previous log entries")]
 struct Opt {
     #[structopt(help = "Input log file")]
     input: String,
@@ -33,14 +33,20 @@ struct Opt {
 struct TsEntry {
     entry: gst_log_parser::Entry,
     thread_diff: ClockTime,
+    function_diff: ClockTime,
     top: bool,
 }
 
 impl TsEntry {
-    fn new(entry: gst_log_parser::Entry, thread_diff: ClockTime) -> TsEntry {
+    fn new(
+        entry: gst_log_parser::Entry,
+        thread_diff: ClockTime,
+        function_diff: ClockTime,
+    ) -> TsEntry {
         TsEntry {
             entry: entry,
             thread_diff: thread_diff,
+            function_diff: function_diff,
             top: false,
         }
     }
@@ -49,7 +55,25 @@ impl TsEntry {
         TsEntry {
             entry: e.entry,
             thread_diff: e.thread_diff,
+            function_diff: e.function_diff,
             top: true,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+struct FunctionEntry {
+    file: String,
+    line: u32,
+    thread: String,
+}
+
+impl FunctionEntry {
+    fn new(e: &gst_log_parser::Entry) -> FunctionEntry {
+        FunctionEntry {
+            file: e.file.clone(),
+            line: e.line,
+            thread: e.thread.clone(),
         }
     }
 }
@@ -61,6 +85,7 @@ fn generate() -> Result<bool, std::io::Error> {
     let parsed = parse(input);
     // thread -> latest ts
     let mut previous: HashMap<String, ClockTime> = HashMap::new();
+    let mut fcts: HashMap<FunctionEntry, ClockTime> = HashMap::new();
 
     // Compute ts diff
     let entries = parsed.map(|entry| {
@@ -68,10 +93,17 @@ fn generate() -> Result<bool, std::io::Error> {
             Some(p) => entry.ts - *p,
             None => ClockTime::from_seconds(0),
         };
-
         previous.insert(entry.thread.clone(), entry.ts);
 
-        TsEntry::new(entry, thread_diff)
+        let fct = FunctionEntry::new(&entry);
+        let function_diff = match fcts.get(&fct) {
+            Some(p) => entry.ts - *p,
+            None => ClockTime::from_seconds(0),
+        };
+        fcts.insert(fct, entry.ts);
+
+
+        TsEntry::new(entry, thread_diff, function_diff)
     });
 
     // Sort by ts thread_diff
@@ -94,6 +126,10 @@ fn generate() -> Result<bool, std::io::Error> {
         .into_iter();
 
     // Display
+    println!(
+        "(diff from last entry in this thread, \
+        diff from last entry in this thread at this source code location)"
+    );
     for e in entries {
         let thread_diff = {
             if e.top {
@@ -104,9 +140,10 @@ fn generate() -> Result<bool, std::io::Error> {
         };
 
         println!(
-            "{} ({}) {} {:?} {} {}:{}:{}:<{}> {}",
+            "{} ({} {}) {} {:?} {} {}:{}:{}:<{}> {}",
             e.entry.ts,
             thread_diff,
+            e.function_diff,
             e.entry.thread,
             e.entry.level,
             e.entry.category,
