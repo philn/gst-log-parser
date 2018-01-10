@@ -34,7 +34,7 @@ struct TsEntry {
     entry: gst_log_parser::Entry,
     thread_diff: ClockTime,
     function_diff: ClockTime,
-    top: bool,
+    thread_top: bool,
 }
 
 impl TsEntry {
@@ -47,16 +47,7 @@ impl TsEntry {
             entry: entry,
             thread_diff: thread_diff,
             function_diff: function_diff,
-            top: false,
-        }
-    }
-
-    fn new_top(e: TsEntry) -> TsEntry {
-        TsEntry {
-            entry: e.entry,
-            thread_diff: e.thread_diff,
-            function_diff: e.function_diff,
-            top: true,
+            thread_top: false,
         }
     }
 }
@@ -112,13 +103,13 @@ fn generate() -> Result<bool, std::io::Error> {
     // Mark the top entries
     let n = entries.len() * opt.top / 100;
 
-    let entries = entries.into_iter().enumerate().map(
-        |(i, e)| if i < n as usize {
-            TsEntry::new_top(e)
-        } else {
-            e
-        },
-    );
+    // FIXME: could we do this using take()? That would consume the iterator.
+    let entries = entries.into_iter().enumerate().map(|(i, mut e)| {
+        if i < n as usize {
+            e.thread_top = true;
+        }
+        e
+    });
 
     // Sort by ts
     let entries = entries
@@ -132,7 +123,7 @@ fn generate() -> Result<bool, std::io::Error> {
     );
     for e in entries {
         let thread_diff = {
-            if e.top {
+            if e.thread_top {
                 e.thread_diff.to_string().red().to_string()
             } else {
                 e.thread_diff.to_string()
