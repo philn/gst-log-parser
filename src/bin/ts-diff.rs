@@ -32,15 +32,15 @@ struct Opt {
 
 struct TsEntry {
     entry: gst_log_parser::Entry,
-    diff: ClockTime,
+    thread_diff: ClockTime,
     top: bool,
 }
 
 impl TsEntry {
-    fn new(entry: gst_log_parser::Entry, diff: ClockTime) -> TsEntry {
+    fn new(entry: gst_log_parser::Entry, thread_diff: ClockTime) -> TsEntry {
         TsEntry {
             entry: entry,
-            diff: diff,
+            thread_diff: thread_diff,
             top: false,
         }
     }
@@ -48,7 +48,7 @@ impl TsEntry {
     fn new_top(e: TsEntry) -> TsEntry {
         TsEntry {
             entry: e.entry,
-            diff: e.diff,
+            thread_diff: e.thread_diff,
             top: true,
         }
     }
@@ -59,22 +59,23 @@ fn generate() -> Result<bool, std::io::Error> {
     let input = File::open(opt.input)?;
 
     let parsed = parse(input);
+    // thread -> latest ts
     let mut previous: HashMap<String, ClockTime> = HashMap::new();
 
     // Compute ts diff
     let entries = parsed.map(|entry| {
-        let diff = match previous.get(&entry.thread) {
+        let thread_diff = match previous.get(&entry.thread) {
             Some(p) => entry.ts - *p,
             None => ClockTime::from_seconds(0),
         };
 
         previous.insert(entry.thread.clone(), entry.ts);
 
-        TsEntry::new(entry, diff)
+        TsEntry::new(entry, thread_diff)
     });
 
-    // Sort by ts diff
-    let entries = entries.sorted_by(|a, b| Ord::cmp(&b.diff, &a.diff));
+    // Sort by ts thread_diff
+    let entries = entries.sorted_by(|a, b| Ord::cmp(&b.thread_diff, &a.thread_diff));
 
     // Mark the top entries
     let n = entries.len() * opt.top / 100;
@@ -94,18 +95,18 @@ fn generate() -> Result<bool, std::io::Error> {
 
     // Display
     for e in entries {
-        let diff = {
+        let thread_diff = {
             if e.top {
-                e.diff.to_string().red().to_string()
+                e.thread_diff.to_string().red().to_string()
             } else {
-                e.diff.to_string()
+                e.thread_diff.to_string()
             }
         };
 
         println!(
             "{} ({}) {} {:?} {} {}:{}:{}:<{}> {}",
             e.entry.ts,
-            diff,
+            thread_diff,
             e.entry.thread,
             e.entry.level,
             e.entry.category,
