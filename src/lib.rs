@@ -18,13 +18,13 @@ use regex::Regex;
 #[derive(Debug)]
 pub struct ParsingError;
 
-pub struct Entry {
+pub struct Entry<'a> {
     /* Original log entry */
     log_line: String,
 
     pub ts: ClockTime,
     pub pid: u32,
-    pub thread: String,
+    pub thread: &'a str,
     pub level: DebugLevel,
     pub category: String,
     pub file: String,
@@ -92,8 +92,8 @@ fn split_location(location: &str) -> (String, u32, String, Option<String>) {
     (file.to_string(), line, function.to_string(), object_name)
 }
 
-impl Entry {
-    fn new(l: String) -> Entry {
+impl<'a> Entry<'a> {
+    fn new(l: String) -> Entry<'a> {
         // Strip color codes
         lazy_static! {
             static ref RE: Regex = Regex::new("\x1b\\[[0-9;]*m").unwrap();
@@ -107,7 +107,7 @@ impl Entry {
             "Failed to parse PID",
         );
         let mut it = it.skip_while(|x| x.is_empty());
-        let thread = it.next().expect("Missing thread").to_string();
+        let thread = it.next().expect("Missing thread");
         let mut it = it.skip_while(|x| x.is_empty());
         let level = parse_debug_level(it.next().expect("Missing level")).expect("Invalid level");
         let mut it = it.skip_while(|x| x.is_empty());
@@ -132,7 +132,7 @@ impl Entry {
     }
 }
 
-impl fmt::Display for Entry {
+impl<'a> fmt::Display for Entry<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
             f,
@@ -151,20 +151,20 @@ impl fmt::Display for Entry {
     }
 }
 
-pub struct ParserIterator<R: Read> {
+pub struct ParserIterator<'a, R: Read> {
     lines: Lines<BufReader<R>>,
 }
 
-impl<R: Read> ParserIterator<R> {
+impl<'a, R: Read> ParserIterator<'a, R> {
     fn new(lines: Lines<BufReader<R>>) -> Self {
         Self { lines: lines }
     }
 }
 
-impl<R: Read> Iterator for ParserIterator<R> {
-    type Item = Entry;
+impl<'a, R: Read> Iterator for ParserIterator<'a, R> {
+    type Item = Entry<'a>;
 
-    fn next(&mut self) -> Option<Entry> {
+    fn next(&mut self) -> Option<Entry<'a>> {
         match self.lines.next() {
             None => None,
             Some(line) => Some(Entry::new(line.unwrap())),
@@ -172,7 +172,7 @@ impl<R: Read> Iterator for ParserIterator<R> {
     }
 }
 
-pub fn parse<R: Read>(r: R) -> ParserIterator<R> {
+pub fn parse<'a, R: Read>(r: R) -> ParserIterator<'a, R> {
     let file = BufReader::new(r);
 
     ParserIterator::new(file.lines())
