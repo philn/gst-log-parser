@@ -19,6 +19,9 @@ use regex::Regex;
 pub struct ParsingError;
 
 pub struct Entry {
+    /* Original log entry */
+    log_line: String,
+
     pub ts: ClockTime,
     pub pid: u32,
     pub thread: String,
@@ -90,14 +93,14 @@ fn split_location(location: &str) -> (String, u32, String, Option<String>) {
 }
 
 impl Entry {
-    fn new(line: String) -> Entry {
+    fn new(l: String) -> Entry {
         // Strip color codes
         lazy_static! {
             static ref RE: Regex = Regex::new("\x1b\\[[0-9;]*m").unwrap();
         }
-        let line = RE.replace_all(&line, "");
+        let l = RE.replace_all(&l, "");
 
-        let mut it = line.split(" ");
+        let mut it = l.split(" ");
         let ts = parse_time(it.next().expect("Missing ts"));
         let mut it = it.skip_while(|x| x.is_empty());
         let pid = it.next().expect("Missing PID").parse().expect(
@@ -114,6 +117,7 @@ impl Entry {
         let message: String = join(it, " ");
 
         Entry {
+            log_line: l.to_string(),
             ts: ts,
             pid: pid,
             thread: thread,
